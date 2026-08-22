@@ -199,6 +199,32 @@
       outline: none;
     }
 
+    /* Dynamic RDF Live Update Toast */
+    .rdf-live-toast {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--apple-border);
+      border-radius: 14px;
+      padding: 8px 14px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--apple-blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(0, 113, 227, 0.15);
+      z-index: 20;
+      transition: all 0.3s ease;
+    }
+
+    html[dir="ltr"] .rdf-live-toast {
+      left: auto;
+      right: 24px;
+    }
+
     /* Spatial Hotspots (Adobe Aero Style Pins) */
     .aero-hotspot {
       background: rgba(255, 255, 255, 0.95);
@@ -233,35 +259,6 @@
 
     .aero-hotspot:hover .hotspot-icon, .aero-hotspot.active .hotspot-icon {
       background: #ffffff;
-    }
-
-    /* Dimension Measure Ruler Badge */
-    .dimension-badge {
-      position: absolute;
-      top: 24px;
-      right: 24px;
-      background: rgba(255, 255, 255, 0.9);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--apple-border);
-      border-radius: 14px;
-      padding: 8px 14px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--apple-subtext);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
-      z-index: 20;
-    }
-
-    html[dir="ltr"] .dimension-badge {
-      right: auto;
-      left: 24px;
-    }
-
-    .dimension-badge b {
-      color: var(--apple-blue);
     }
 
     /* Floating Apple-style Aero Controls Dock */
@@ -654,9 +651,17 @@
       border-radius: 25px;
       transition: width 0.3s;
     }
+
+    /* Hidden 2D Canvas for Live 3D Texture Baking */
+    #texture-canvas {
+      display: none;
+    }
   </style>
 </head>
 <body>
+
+  <!-- Hidden Canvas for dynamic texture generation from RDF -->
+  <canvas id="texture-canvas" width="2400" height="1200"></canvas>
 
   <!-- Minimalist Apple Header -->
   <header>
@@ -679,7 +684,7 @@
         <span id="lang-label">English</span>
       </button>
 
-      <button class="btn-apple-icon" id="btn-info-toggle" title="بيانات المخطوط">
+      <button class="btn-apple-icon" id="btn-info-toggle" title="بيانات المخطوط (RDF)">
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
       </button>
       <button class="btn-apple-icon" id="btn-studio-toggle" title="تحكم Adobe Aero">
@@ -696,9 +701,9 @@
 
   <!-- 3D Stage -->
   <div class="stage">
-    <!-- Physical Dimension Ruler Badge -->
-    <div class="dimension-badge" id="dim-badge">
-      <span>📐 <span class="t-dim-label">الأبعاد الفيزيائية:</span> <b>21 cm × 14 cm (294 ورقة)</b></span>
+    <!-- Live RDF Update Status Badge -->
+    <div class="rdf-live-toast" id="rdf-toast">
+      <span>⚡ <span id="rdf-toast-text">تم تحميل بيانات الـ RDF في المجسم ثلاثي الأبعاد</span></span>
     </div>
 
     <model-viewer
@@ -897,12 +902,12 @@
 
     <div class="meta-field">
       <span class="meta-label t-lbl-source">المصدر الرسمي</span>
-      <a href="https://kiqp.net/bibliography/125999" target="_blank" style="color:var(--apple-blue); font-size:0.82rem; word-break:break-all;">https://kiqp.net/bibliography/125999</a>
+      <a id="disp-link" href="https://kiqp.net/bibliography/125999" target="_blank" style="color:var(--apple-blue); font-size:0.82rem; word-break:break-all;">https://kiqp.net/bibliography/125999</a>
     </div>
 
     <!-- RDF File Upload Dropzone -->
     <label class="dropzone" id="drop-area">
-      <span class="t-dropzone">📁 اسحب وأفلت أي ملف RDF / XML جديد هنا</span>
+      <span class="t-dropzone">📁 اسحب وأفلت أي ملف RDF / XML جديد هنا لتحميله في المجسم</span>
       <input type="file" id="file-rdf" accept=".rdf,.xml,.jsonld,.ttl" style="display:none;">
     </label>
   </div>
@@ -916,11 +921,284 @@
     const searchResults = document.querySelector("#search-results");
     const statusText = document.querySelector("#ios-status");
     const htmlRoot = document.querySelector("#html-root");
+    const rdfToast = document.querySelector("#rdf-toast");
+    const rdfToastText = document.querySelector("#rdf-toast-text");
+    const textureCanvas = document.querySelector("#texture-canvas");
 
     let currentLang = 'ar';
     let hotspotsVisible = true;
 
-    // Search Database for "Search & Found"
+    // Active RDF Data Object loaded dynamically
+    let activeRdfData = {
+      titleAr: 'القرآن الكريم',
+      titleEn: 'The Holy Quran Manuscript',
+      authorAr: 'حيدر علي (علي، حيدر، ناسخ)',
+      authorEn: 'Haydar Ali (Ali, Haydar, Scribe)',
+      dateAr: '1009 هـ. = [1600] م (نسخت في حائر الإمام الحسين عليه السلام)',
+      dateEn: '1009 AH = [1600 AD] (Copied at the Shrine of Imam Hussain)',
+      extentAr: '294 ورقة (15 سطرًا)',
+      extentEn: '294 Leaves • 15 lines per page',
+      materialAr: 'ورق، حبر أسود، خط النسخ',
+      materialEn: 'Paper, Black Ink, Naskh Script',
+      bindingAr: 'جلدن لاكي مزخرف',
+      bindingEn: 'Lacquered Decorative Leather Binding',
+      callAr: 'BP100.3 1600 (الرقم: b125999 • Sirsi a214162)',
+      callEn: 'BP100.3 1600 (ID: b125999 • Sirsi a214162)',
+      holdingAr: 'مكتبة العتبة العباسية المقدسة (مجلس الشورى: 4175)',
+      holdingEn: 'Al-Abbas Holy Shrine Library (Majlis Shura: 4175)',
+      notesAr: 'النسخة مجدولة بعدة ألوان والصفحة الأولى والثانية مزخرفة، وصدر كل سورة لوحة ذهبية لبيان الأحزاب والأجزاء.',
+      notesEn: 'Polychrome ruled borders, illuminated opening folios, gilded surah headings, and ornamental marginal circles.',
+      sourceUrl: 'https://kiqp.net/bibliography/125999'
+    };
+
+    // ==========================================
+    // 🎨 Live 3D Texture Baking Engine from RDF
+    // ==========================================
+    function bakeAndApplyRdfTexture(data, lang) {
+      const width = 2400;
+      const height = 1200;
+      const ctx = textureCanvas.getContext('2d');
+      ctx.clearRect(0, 0, width, height);
+
+      const pad = 30;
+      const cardW = width - pad * 2;
+      const cardH = height - pad * 2;
+      const radius = 56;
+
+      // 1. Semi-translucent Frosted Glass Background
+      const glassGrad = ctx.createLinearGradient(0, 0, width, height);
+      glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.94)');
+      glassGrad.addColorStop(0.5, 'rgba(245, 247, 250, 0.90)');
+      glassGrad.addColorStop(1, 'rgba(235, 240, 248, 0.94)');
+
+      ctx.fillStyle = glassGrad;
+      ctx.beginPath();
+      ctx.roundRect(pad, pad, cardW, cardH, radius);
+      ctx.fill();
+
+      // 2. Glossy Specular Border
+      const borderGrad = ctx.createLinearGradient(0, 0, width, height);
+      borderGrad.addColorStop(0, '#0071e3');
+      borderGrad.addColorStop(0.5, 'rgba(0, 113, 227, 0.4)');
+      borderGrad.addColorStop(1, '#58a6ff');
+
+      ctx.strokeStyle = borderGrad;
+      ctx.lineWidth = 10;
+      ctx.stroke();
+
+      // Subtle Inner Highlight
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // 3. Top Header Bar: alqami | VisionOS AR Spatial Tag
+      ctx.fillStyle = 'rgba(0, 113, 227, 0.08)';
+      ctx.beginPath();
+      ctx.roundRect(pad + 50, pad + 45, cardW - 100, 90, 26);
+      ctx.fill();
+
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('alqami', pad + 90, pad + 106);
+
+      ctx.fillStyle = '#0071e3';
+      ctx.fillText('.', pad + 225, pad + 106);
+
+      ctx.fillStyle = '#0071e3';
+      ctx.font = '600 30px sans-serif';
+      ctx.fillText('SPATIAL BIBLIOGRAPHIC ASSET • MARC 21 / RDF', pad + 270, pad + 103);
+
+      ctx.fillStyle = '#0071e3';
+      ctx.font = 'bold 36px sans-serif';
+      ctx.fillText(lang === 'ar' ? '1009 هـ  •  1600 M' : '1009 AH  •  1600 AD', width - pad - 440, pad + 105);
+
+      // 4. Main Titles (Dynamic from RDF)
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 94px "Traditional Arabic", "Segoe UI", Arial, sans-serif';
+      ctx.fillText(data.titleAr || 'القرآن الكريم', pad + 90, pad + 260);
+
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = 'bold 54px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText(data.titleEn || 'The Holy Quran Manuscript', pad + 700, pad + 230);
+
+      ctx.fillStyle = '#0071e3';
+      ctx.font = '600 38px "Traditional Arabic", "Segoe UI", sans-serif';
+      ctx.fillText(`الناسخ: ${data.authorAr || 'حيدر علي'}  |  Scribe: ${data.authorEn || 'Haydar Ali'}`, pad + 700, pad + 285);
+
+      // Divider Line
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(pad + 80, pad + 330);
+      ctx.lineTo(width - pad - 80, pad + 330);
+      ctx.stroke();
+
+      // 5. Metadata Chips Grid (4 Columns)
+      const drawChip = (labelAr, labelEn, valAr, valEn, x, y, w, h) => {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 24);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#0071e3';
+        ctx.beginPath();
+        ctx.roundRect(x + 12, y + 16, 8, h - 32, 4);
+        ctx.fill();
+
+        ctx.fillStyle = '#86868b';
+        ctx.font = 'bold 24px -apple-system, sans-serif';
+        ctx.fillText(`${labelEn.toUpperCase()} • ${labelAr}`, x + 34, y + 42);
+
+        ctx.fillStyle = '#1d1d1f';
+        ctx.font = 'bold 36px "Traditional Arabic", "Segoe UI", sans-serif';
+        ctx.fillText(valAr, x + 34, y + 92);
+
+        ctx.fillStyle = '#424245';
+        ctx.font = '600 26px -apple-system, sans-serif';
+        ctx.fillText(valEn, x + 34, y + 138);
+      };
+
+      const colW = (cardW - 160 - 30) / 2;
+      const rowH = 175;
+      const row1Y = pad + 360;
+      const row2Y = row1Y + rowH + 20;
+
+      drawChip('الوصف والخط', 'Physical Extent', data.extentAr, data.extentEn, pad + 80, row1Y, colW, rowH);
+      drawChip('التصنيف والحفظ', 'Call Number & IDs', data.callAr, data.callEn, pad + 80 + colW + 30, row1Y, colW, rowH);
+      drawChip('الغلاف والتجليد', 'Binding & Cover', data.bindingAr, data.bindingEn, pad + 80, row2Y, colW, rowH);
+      drawChip('جهة الحفظ الرسمية', 'Holding Institution', data.holdingAr, data.holdingEn, pad + 80 + colW + 30, row2Y, colW, rowH);
+
+      // 6. Bottom Banner: Description & Notes
+      const bannerY = row2Y + rowH + 25;
+      const bannerH = 150;
+      ctx.fillStyle = 'rgba(0, 113, 227, 0.05)';
+      ctx.beginPath();
+      ctx.roundRect(pad + 80, bannerY, cardW - 160, bannerH, 20);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(0, 113, 227, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = 'bold 28px "Traditional Arabic", "Segoe UI", sans-serif';
+      ctx.fillText(`• ${data.notesAr}`, pad + 110, bannerY + 50);
+
+      ctx.fillStyle = '#6e6e73';
+      ctx.font = '24px -apple-system, sans-serif';
+      ctx.fillText(`• Illumination: ${data.notesEn}`, pad + 110, bannerY + 95);
+
+      ctx.fillStyle = '#0071e3';
+      ctx.font = '600 24px -apple-system, sans-serif';
+      ctx.fillText(`🔗 Source Record: ${data.sourceUrl || 'https://kiqp.net/bibliography/125999'}`, pad + 110, bannerY + 130);
+
+      // Update the 3D model material in real time!
+      textureCanvas.toBlob(async (blob) => {
+        if (!blob || !viewer.model) return;
+        const blobUrl = URL.createObjectURL(blob);
+        try {
+          const material = viewer.model.materials.find(m => m.name === 'AlqamiVisionGlass_Mat');
+          if (material) {
+            const texture = await viewer.createTexture(blobUrl);
+            material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+            if (material.emissiveTexture) {
+              material.emissiveTexture.setTexture(texture);
+            }
+          }
+        } catch (err) {
+          console.warn('Live 3D texture update notice:', err);
+        }
+      }, 'image/png');
+    }
+
+    // ==========================================
+    // 📖 Live RDF / XML Parser
+    // ==========================================
+    async function loadAndParseRDF(url) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const xmlText = await res.text();
+        parseRDFXML(xmlText);
+      } catch (err) {
+        console.warn('RDF Fetch info:', err);
+      }
+    }
+
+    function parseRDFXML(xmlString) {
+      const doc = new DOMParser().parseFromString(xmlString, "application/xml");
+      const find = (sel) => {
+        const el = doc.querySelector(sel);
+        return el ? el.textContent.trim() : null;
+      };
+
+      const title = find("mainTitle, Title mainTitle, dc\\:title, title") || activeRdfData.titleAr;
+      const author = find("agent rdfs\\:label, responsibilityStatement, Person rdfs\\:label, creator") || activeRdfData.authorAr;
+      const date = find("publicationStatement, date") || activeRdfData.dateAr;
+      const extent = find("extent rdfs\\:label, extent") || activeRdfData.extentAr;
+      const material = find("material rdfs\\:label") || activeRdfData.materialAr;
+      const binding = find("binding rdfs\\:label") || activeRdfData.bindingAr;
+      const note = find("Note rdfs\\:label, note") || activeRdfData.notesAr;
+      const holding = find("Holding rdfs\\:label, holding") || activeRdfData.holdingAr;
+      const url = find("url") || activeRdfData.sourceUrl;
+
+      // Update active data structure
+      activeRdfData.titleAr = title;
+      activeRdfData.authorAr = author;
+      activeRdfData.dateAr = date;
+      activeRdfData.extentAr = extent;
+      activeRdfData.materialAr = material;
+      activeRdfData.bindingAr = binding;
+      activeRdfData.notesAr = note;
+      activeRdfData.holdingAr = holding;
+      activeRdfData.sourceUrl = url;
+
+      // Update DOM Text fields
+      document.querySelector("#disp-title").innerText = title;
+      document.querySelector("#disp-author").innerText = author;
+      document.querySelector("#disp-date").innerText = date;
+      document.querySelector("#disp-extent").innerText = extent;
+      document.querySelector("#disp-material").innerText = material;
+      document.querySelector("#disp-binding").innerText = binding;
+      document.querySelector("#disp-notes").innerText = note;
+      document.querySelector("#disp-holding").innerText = holding;
+      document.querySelector("#disp-link").href = url;
+      document.querySelector("#disp-link").innerText = url;
+
+      // Bake into the 3D model!
+      bakeAndApplyRdfTexture(activeRdfData, currentLang);
+
+      // Show toast
+      rdfToast.style.display = 'flex';
+      rdfToastText.innerText = currentLang === 'ar' ? 'تم تحديث بيانات المخطوط في المجسم ثلاثي الأبعاد بنجاح' : 'RDF metadata dynamically loaded into 3D model';
+      setTimeout(() => { rdfToast.style.display = 'none'; }, 4000);
+    }
+
+    // Dynamic File Input for Drag & Drop RDF
+    const fileInput = document.querySelector("#file-rdf");
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          parseRDFXML(evt.target.result);
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    // Model loaded event -> Bake initial RDF texture into 3D Model
+    viewer.addEventListener('load', () => {
+      loadAndParseRDF('data.rdf');
+    });
+
+    // ==========================================
+    // 🔍 Search & Found Database
+    // ==========================================
     const searchDatabase = [
       {
         id: 'illumination',
@@ -981,8 +1259,8 @@
         id: 'hud',
         titleAr: 'لوحة البيانات العائمة بنمط Apple Vision Pro',
         titleEn: 'Floating Holographic Vision Pro HUD Card',
-        descAr: 'لوحة زجاجية عائمة ثنائية اللغة في الفضاء الثلاثي الأبعاد وفوق المخطوط مباشرة في الواقع المعزز.',
-        descEn: 'Bilingual floating frosted glass metadata HUD hovering in 3D & in AR room placement.',
+        descAr: 'لوحة زجاجية عائمة ثنائية اللغة محملة بالكامل من ملف الـ RDF في الفضاء الثلاثي الأبعاد وفوق المخطوط مباشرة في الواقع المعزز.',
+        descEn: 'Bilingual floating frosted glass metadata HUD dynamically loaded from RDF in 3D & AR.',
         tagAr: 'واقع معزز 3D',
         tagEn: 'Spatial AR',
         orbit: '0deg 60deg 110%',
@@ -1020,7 +1298,6 @@
         `;
         div.addEventListener('click', () => {
           searchModal.classList.remove('open');
-          // Smooth 3D camera move to focus on found area!
           viewer.cameraOrbit = item.orbit;
           viewer.cameraTarget = item.target;
         });
@@ -1047,7 +1324,6 @@
       renderSearchResults(e.target.value);
     });
 
-    // Keyboard shortcut (Cmd+K / Ctrl+K)
     window.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -1060,7 +1336,7 @@
       if (e.key === 'Escape') searchModal.classList.remove('open');
     });
 
-    // Hotspot Click Actions
+    // Hotspots Click Actions
     document.querySelector("#hp-open").addEventListener('click', () => {
       viewer.cameraOrbit = "-25deg 70deg 85%";
       viewer.cameraTarget = "-0.35m 0.15m 0.08m";
@@ -1094,7 +1370,6 @@
         badge: 'القرآن الكريم (1009 هـ / 1600 M)',
         langBtn: 'English',
         searchPrompt: 'بحث واستكشاف المخطوط...',
-        dimLabel: 'الأبعاد الفيزيائية:',
         hpOpen: 'فواتح مزخرفة مذهبة',
         hpNaskh: 'خط النسخ (15 سطرًا)',
         hpScribe: 'الناسخ حيدر علي (1009 هـ)',
@@ -1124,23 +1399,13 @@
         lblHolding: 'جهة الحفظ (949 / 535)',
         lblNotes: 'الملاحظات والزخرفة (500)',
         lblSource: 'المصدر الرسمي',
-        dropzone: '📁 اسحب وأفلت أي ملف RDF / XML جديد هنا',
-        titleVal: 'القرآن الكريم',
-        authorVal: 'حيدر علي (علي، حيدر، ناسخ)',
-        dateVal: '1009 هـ. = [1600] م (نسخت في حائر الإمام الحسين عليه السلام)',
-        extentVal: '294 ورقة (15 سطرًا)',
-        materialVal: 'ورق، حبر أسود، خط النسخ',
-        bindingVal: 'جلدن لاكي مزخرف',
-        callVal: 'BP100.3 1600 (الرقم: b125999 • Sirsi a214162)',
-        holdingVal: 'مكتبة العتبة العباسية المقدسة (مجلس الشورى: 4175)',
-        notesVal: 'النسخة مجدولة بعدة ألوان والصفحة الأولى والثانية مزخرفة. صدر كل سورة لوحة ذهبية وفي هوامشها دوائر مزخرفة لبيان الحزب وبداية الأجزاء.'
+        dropzone: '📁 اسحب وأفلت أي ملف RDF / XML جديد هنا لتحميله في المجسم'
       },
       en: {
         dir: 'ltr',
         badge: 'Holy Quran Manuscript (1009 AH / 1600 AD)',
         langBtn: 'العربية',
         searchPrompt: 'Search & Explore Manuscript...',
-        dimLabel: 'Physical Dimensions:',
         hpOpen: 'Illuminated Opening Pages',
         hpNaskh: 'Naskh Calligraphy (15 Lines)',
         hpScribe: 'Scribe Haydar Ali (1600 AD)',
@@ -1170,16 +1435,7 @@
         lblHolding: 'Holding Institution (949 / 535)',
         lblNotes: 'Illumination & Notes (500)',
         lblSource: 'Official Record URL',
-        dropzone: '📁 Drag and drop any new RDF / XML file here',
-        titleVal: 'The Holy Quran Manuscript',
-        authorVal: 'Haydar Ali (Ali, Haydar, Scribe)',
-        dateVal: '1009 AH = [1600 AD] (Copied at the Shrine of Imam Hussain)',
-        extentVal: '294 Leaves (15 lines per page)',
-        materialVal: 'Paper, Black Ink, Naskh Script',
-        bindingVal: 'Lacquered Decorative Leather Binding',
-        callVal: 'BP100.3 1600 (ID: b125999 • Sirsi a214162)',
-        holdingVal: 'Al-Abbas Holy Shrine Library (Majlis Shura: 4175)',
-        notesVal: 'Polychrome ruled borders, illuminated opening pages, gilded surah headings, and ornamental marginal circles.'
+        dropzone: '📁 Drag and drop any new RDF / XML file here to load into model'
       }
     };
 
@@ -1192,7 +1448,6 @@
       document.querySelector("#hdr-badge").innerText = t.badge;
       document.querySelector("#lang-label").innerText = t.langBtn;
       document.querySelector(".t-search-prompt").innerText = t.searchPrompt;
-      document.querySelector(".t-dim-label").innerText = t.dimLabel;
 
       document.querySelector(".t-hp-open").innerText = t.hpOpen;
       document.querySelector(".t-hp-naskh").innerText = t.hpNaskh;
@@ -1226,15 +1481,8 @@
       document.querySelector(".t-lbl-source").innerText = t.lblSource;
       document.querySelector(".t-dropzone").innerText = t.dropzone;
 
-      document.querySelector("#disp-title").innerText = t.titleVal;
-      document.querySelector("#disp-author").innerText = t.authorVal;
-      document.querySelector("#disp-date").innerText = t.dateVal;
-      document.querySelector("#disp-extent").innerText = t.extentVal;
-      document.querySelector("#disp-material").innerText = t.materialVal;
-      document.querySelector("#disp-binding").innerText = t.bindingVal;
-      document.querySelector("#disp-call").innerText = t.callVal;
-      document.querySelector("#disp-holding").innerText = t.holdingVal;
-      document.querySelector("#disp-notes").innerText = t.notesVal;
+      // Re-bake 3D Model Texture for new language
+      bakeAndApplyRdfTexture(activeRdfData, currentLang);
     }
 
     // Toggle Language Button
@@ -1325,58 +1573,6 @@
     document.querySelector("#slider-shadow").addEventListener('input', (e) => {
       viewer.shadowIntensity = e.target.value;
       document.querySelector("#label-shadow").innerText = e.target.value;
-    });
-
-    // Dynamic RDF XML Parser
-    async function loadRDF(url) {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) return;
-        const text = await res.text();
-        parseAndApplyRDF(text);
-      } catch (e) {
-        console.warn('RDF load info:', e);
-      }
-    }
-
-    function parseAndApplyRDF(xmlStr) {
-      const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
-      const find = (sel) => {
-        const el = doc.querySelector(sel);
-        return el ? el.textContent.trim() : null;
-      };
-
-      const title = find("mainTitle, Title mainTitle, dc\\:title, title");
-      const author = find("agent rdfs\\:label, responsibilityStatement, Person rdfs\\:label");
-      const date = find("publicationStatement, date");
-      const extent = find("extent rdfs\\:label, extent");
-      const material = find("material rdfs\\:label");
-      const binding = find("binding rdfs\\:label");
-      const note = find("Note rdfs\\:label, note");
-
-      if (title) document.querySelector("#disp-title").innerText = title;
-      if (author) document.querySelector("#disp-author").innerText = author;
-      if (date) document.querySelector("#disp-date").innerText = date;
-      if (extent) document.querySelector("#disp-extent").innerText = extent;
-      if (material) document.querySelector("#disp-material").innerText = material;
-      if (binding) document.querySelector("#disp-binding").innerText = binding;
-      if (note) document.querySelector("#disp-notes").innerText = note;
-    }
-
-    loadRDF('data.rdf');
-
-    // Dynamic File Input for RDF
-    const fileInput = document.querySelector("#file-rdf");
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const r = new FileReader();
-        r.onload = (evt) => {
-          parseAndApplyRDF(evt.target.result);
-          alert(currentLang === 'ar' ? '✅ تم تحديث بيانات المخطوط بنجاح من ملف الـ RDF!' : '✅ Metadata successfully updated from RDF file!');
-        };
-        r.readAsText(file);
-      }
     });
 
     // iOS Safari Quick Look USDZ converter
