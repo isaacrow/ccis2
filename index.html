@@ -1,1978 +1,371 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" id="app-root">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#0a0a0c">
-  <title>ALQAMI • المختبر الرقمي للمخطوطات والواقع المكاني (1009 هـ / 1600 م)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>ALQAMI AR 3D Lab</title>
 
-  <!-- External Libraries: Three.js, OrbitControls, TWEEN for smooth spatial physics -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Latest cutting-edge model-viewer for WebXR, Hotspots, and Material API -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 
   <style>
     :root {
-      --bg-space: #070709;
-      --bg-surface: rgba(18, 18, 24, 0.78);
-      --bg-card: rgba(26, 26, 36, 0.85);
-      --glass-border: rgba(255, 255, 255, 0.12);
-      --glass-glow: rgba(212, 175, 55, 0.25);
-      --gold-primary: #d4af37;
-      --gold-light: #f7e089;
-      --gold-dark: #997819;
-      --lapis-blue: #0071e3;
-      --lapis-cyan: #29b6f6;
-      --accent-uv: #9d4edd;
-      --accent-ir: #ff5252;
-      --accent-green: #30d158;
-      --text-main: #f5f5f7;
-      --text-muted: #a1a1aa;
-      --text-dim: #71717a;
-      --font-arabic: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Arabic", "Amiri", "Traditional Arabic", serif;
-      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-      --shadow-spatial: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 1px 1px rgba(255, 255, 255, 0.15) inset;
-      --blur-strength: blur(28px) saturate(190%);
+      --accent: #d4af37;
+      --bg: #0a0a0c;
+      --glass: rgba(20, 20, 25, 0.7);
+      --border: rgba(255, 255, 255, 0.1);
     }
-
-    [data-theme="light"] {
-      --bg-space: #f2f2f7;
-      --bg-surface: rgba(255, 255, 255, 0.85);
-      --bg-card: rgba(255, 255, 255, 0.95);
-      --glass-border: rgba(0, 0, 0, 0.08);
-      --glass-glow: rgba(212, 175, 55, 0.2);
-      --text-main: #1c1c1e;
-      --text-muted: #636366;
-      --text-dim: #8e8e93;
-      --shadow-spatial: 0 20px 48px rgba(0, 0, 0, 0.08), 0 0 1px 1px rgba(255, 255, 255, 0.8) inset;
-    }
-
-    * {
-      box-sizing: border-box;
+    
+    body {
       margin: 0;
       padding: 0;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
-
-    body {
-      background-color: var(--bg-space);
-      color: var(--text-main);
-      font-family: var(--font-arabic);
+      background-color: var(--bg);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow: hidden;
       width: 100vw;
       height: 100vh;
-      display: flex;
-      flex-direction: column;
-      transition: background-color 0.4s ease;
     }
 
-    html[dir="ltr"] body {
-      font-family: var(--font-sans);
+    model-viewer {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg);
+      --poster-color: transparent;
     }
 
-    /* Top Spatial Bar (VisionOS style) */
-    header {
-      position: absolute;
-      top: 16px;
-      left: 20px;
-      right: 20px;
-      height: 58px;
-      background: var(--bg-surface);
-      backdrop-filter: var(--blur-strength);
-      -webkit-backdrop-filter: var(--blur-strength);
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 18px;
-      z-index: 50;
-      box-shadow: var(--shadow-spatial);
-    }
-
-    .brand-section {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .brand-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, var(--gold-primary), var(--gold-dark));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #000;
-      font-weight: 900;
-      font-size: 1.1rem;
-      box-shadow: 0 4px 14px var(--glass-glow);
-    }
-
-    .brand-titles {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .brand-name {
-      font-size: 1.05rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .brand-name .badge-pro {
-      font-size: 0.65rem;
-      background: linear-gradient(90deg, #d4af37, #f7e089);
-      color: #000;
-      padding: 1px 6px;
-      border-radius: 6px;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-
-    .brand-sub {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-
-    /* Spectral Mode Pill Bar */
-    .spectral-pills {
-      display: flex;
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid var(--glass-border);
-      padding: 3px;
-      border-radius: 14px;
-      gap: 3px;
-    }
-
-    [data-theme="light"] .spectral-pills {
-      background: rgba(0, 0, 0, 0.05);
-    }
-
-    .spectral-btn {
-      background: transparent;
+    /* 
+      1. Spatially Anchored 3D Hotspots 
+      These elements stick directly to the 3D coordinates on the GLB mesh.
+    */
+    .hotspot {
+      display: block;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
       border: none;
-      color: var(--text-muted);
-      padding: 6px 14px;
-      border-radius: 10px;
-      font-size: 0.78rem;
-      font-weight: 700;
+      background: rgba(212, 175, 55, 0.8);
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.6);
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      position: relative;
     }
 
-    .spectral-btn svg {
-      width: 14px;
-      height: 14px;
-      fill: currentColor;
-    }
-
-    .spectral-btn:hover {
-      color: var(--text-main);
-      background: rgba(255, 255, 255, 0.06);
-    }
-
-    .spectral-btn.active {
-      background: var(--text-main);
-      color: var(--bg-space);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-    }
-
-    .spectral-btn.mode-ir.active {
-      background: var(--accent-ir);
-      color: #fff;
-      box-shadow: 0 4px 16px rgba(255, 82, 82, 0.4);
-    }
-
-    .spectral-btn.mode-uv.active {
-      background: var(--accent-uv);
-      color: #fff;
-      box-shadow: 0 4px 16px rgba(157, 78, 221, 0.4);
-    }
-
-    .spectral-btn.mode-raking.active {
-      background: var(--gold-primary);
-      color: #000;
-      box-shadow: 0 4px 16px var(--glass-glow);
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .spatial-btn {
-      background: var(--bg-card);
-      border: 1px solid var(--glass-border);
-      color: var(--text-main);
-      padding: 7px 13px;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .spatial-btn:hover {
-      transform: translateY(-1px);
-      border-color: var(--gold-primary);
-      box-shadow: 0 4px 12px var(--glass-glow);
-    }
-
-    .spatial-btn.icon-only {
-      width: 38px;
-      height: 38px;
-      padding: 0;
-      justify-content: center;
-    }
-
-    .spatial-btn.active {
-      background: var(--gold-primary);
-      color: #000;
-      border-color: var(--gold-light);
-    }
-
-    /* 3D WebGL Canvas Area */
-    #canvas-container {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 1;
-    }
-
-    /* Left Scientific Telemetry Widget */
-    .telemetry-panel {
-      position: absolute;
-      top: 88px;
-      right: 20px;
-      width: 320px;
-      background: var(--bg-surface);
-      backdrop-filter: var(--blur-strength);
-      -webkit-backdrop-filter: var(--blur-strength);
-      border: 1px solid var(--glass-border);
-      border-radius: 22px;
-      padding: 16px 18px;
-      box-shadow: var(--shadow-spatial);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      z-index: 30;
-      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
-    }
-
-    html[dir="ltr"] .telemetry-panel {
-      right: auto;
-      left: 20px;
-    }
-
-    .telemetry-panel.minimized {
-      transform: translateX(360px);
+    .hotspot:not([data-visible]) {
       opacity: 0;
       pointer-events: none;
+      transform: scale(0.1);
     }
 
-    html[dir="ltr"] .telemetry-panel.minimized {
-      transform: translateX(-360px);
-    }
-
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--glass-border);
-      padding-bottom: 8px;
-    }
-
-    .panel-title {
-      font-size: 0.86rem;
-      font-weight: 800;
-      color: var(--gold-primary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .telemetry-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .telem-box {
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      padding: 8px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    [data-theme="light"] .telem-box {
-      background: rgba(0, 0, 0, 0.03);
-    }
-
-    .telem-label {
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .telem-val {
-      font-size: 0.85rem;
-      font-weight: 800;
-      color: var(--text-main);
-      font-family: monospace;
-    }
-
-    /* Spectral Info Banner */
-    .spectral-banner {
-      background: rgba(212, 175, 55, 0.1);
-      border: 1px solid rgba(212, 175, 55, 0.3);
-      border-radius: 12px;
-      padding: 10px;
-      font-size: 0.74rem;
-      line-height: 1.4;
-      color: var(--text-muted);
-    }
-
-    .spectral-banner strong {
-      color: var(--gold-primary);
-    }
-
-    /* Raking light angle slider */
-    .raking-control-group {
-      display: none;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .raking-control-group.visible {
-      display: flex;
-    }
-
-    .range-slider {
-      width: 100%;
-      height: 6px;
-      background: var(--glass-border);
-      border-radius: 4px;
+    .hotspot:focus {
       outline: none;
-      -webkit-appearance: none;
-      accent-color: var(--gold-primary);
     }
 
-    /* Bottom Vision Floating Spatial Dock */
-    .spatial-dock {
+    .hotspot::after {
+      content: '';
       position: absolute;
-      bottom: 24px;
+      top: 50%;
       left: 50%;
-      transform: translateX(-50%);
-      background: var(--bg-surface);
-      backdrop-filter: var(--blur-strength);
-      -webkit-backdrop-filter: var(--blur-strength);
-      border: 1px solid var(--glass-border);
-      border-radius: 28px;
-      padding: 8px 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: var(--shadow-spatial);
-      z-index: 40;
-    }
-
-    .dock-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-main);
-      padding: 9px 14px;
-      border-radius: 18px;
-      font-size: 0.82rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .dock-btn svg {
-      width: 17px;
-      height: 17px;
-      fill: currentColor;
-    }
-
-    .dock-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
-      transform: translateY(-2px);
-    }
-
-    .dock-btn.active {
-      background: var(--bg-card);
-      color: var(--gold-primary);
-      border: 1px solid var(--gold-primary);
-      box-shadow: 0 4px 16px var(--glass-glow);
-    }
-
-    .dock-btn.primary-gold {
-      background: linear-gradient(135deg, var(--gold-primary), var(--gold-dark));
-      color: #000;
-      font-weight: 800;
-      padding: 9px 18px;
-      box-shadow: 0 4px 18px var(--glass-glow);
-    }
-
-    .dock-btn.primary-gold:hover {
-      transform: scale(1.04) translateY(-2px);
-      box-shadow: 0 6px 22px rgba(212, 175, 55, 0.5);
-    }
-
-    /* Spatial Hotspots in 3D Space */
-    .hotspot-tag {
-      position: absolute;
-      background: rgba(18, 18, 24, 0.9);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--gold-primary);
-      border-radius: 12px;
-      padding: 6px 12px;
-      color: #fff;
-      font-size: 0.72rem;
-      font-weight: 700;
-      pointer-events: auto;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 10px var(--glass-glow);
-      transition: transform 0.2s, background-color 0.2s;
-      z-index: 20;
-    }
-
-    .hotspot-tag:hover {
-      transform: translate(-50%, -50%) scale(1.08);
-      background: var(--gold-primary);
-      color: #000;
-    }
-
-    .hotspot-tag .pulse-dot {
       width: 8px;
       height: 8px;
+      background: #fff;
       border-radius: 50%;
-      background: var(--gold-light);
-      animation: pulseGlow 1.6s infinite ease-in-out;
-    }
-
-    @keyframes pulseGlow {
-      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(247, 224, 137, 0.7); }
-      70% { transform: scale(1.3); box-shadow: 0 0 0 8px rgba(247, 224, 137, 0); }
-      100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(247, 224, 137, 0); }
-    }
-
-    /* Slide-over Modals */
-    .spatial-modal {
-      position: absolute;
-      top: 88px;
-      bottom: 96px;
-      left: 20px;
-      width: 440px;
-      max-width: calc(100vw - 40px);
-      background: var(--bg-surface);
-      backdrop-filter: var(--blur-strength);
-      -webkit-backdrop-filter: var(--blur-strength);
-      border: 1px solid var(--glass-border);
-      border-radius: 26px;
-      padding: 22px;
-      box-shadow: var(--shadow-spatial);
-      display: none;
-      flex-direction: column;
-      gap: 16px;
-      z-index: 45;
-      overflow-y: auto;
-      animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    html[dir="ltr"] .spatial-modal {
-      left: auto;
-      right: 20px;
-    }
-
-    .spatial-modal.open {
-      display: flex;
-    }
-
-    @keyframes modalSlideIn {
-      from { opacity: 0; transform: translateX(-30px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    html[dir="ltr"] @keyframes modalSlideIn {
-      from { opacity: 0; transform: translateX(30px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    .modal-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--glass-border);
-      padding-bottom: 12px;
-    }
-
-    .modal-head h3 {
-      font-size: 1rem;
-      font-weight: 800;
-      color: var(--text-main);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .modal-close-btn {
-      background: rgba(255, 255, 255, 0.08);
-      border: none;
-      color: var(--text-muted);
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-    }
-
-    .modal-close-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-      color: var(--text-main);
-    }
-
-    /* AI Paleography Card */
-    .ai-glyph-card {
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .glyph-display {
-      font-size: 2.2rem;
-      color: var(--gold-primary);
-      text-align: center;
-      padding: 8px;
-      background: radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, transparent 70%);
-      border-radius: 12px;
-      font-family: "Amiri", "Traditional Arabic", serif;
-    }
-
-    .glyph-props {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 0.78rem;
-    }
-
-    .prop-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 0;
-      border-bottom: 1px dashed var(--glass-border);
-    }
-
-    .prop-row:last-child {
-      border-bottom: none;
-    }
-
-    .prop-name { color: var(--text-dim); }
-    .prop-val { font-weight: 700; color: var(--text-main); }
-
-    /* Timeline Odyssey */
-    .timeline-container {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      position: relative;
-      padding-right: 18px;
-    }
-
-    html[dir="ltr"] .timeline-container {
-      padding-right: 0;
-      padding-left: 18px;
-    }
-
-    .timeline-container::before {
-      content: "";
-      position: absolute;
-      top: 8px;
-      bottom: 8px;
-      right: 4px;
-      width: 2px;
-      background: linear-gradient(180deg, var(--gold-primary), var(--lapis-blue));
-    }
-
-    html[dir="ltr"] .timeline-container::before {
-      right: auto;
-      left: 4px;
-    }
-
-    .timeline-node {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      background: rgba(0, 0, 0, 0.2);
-      padding: 10px 14px;
-      border-radius: 14px;
-      border: 1px solid var(--glass-border);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .timeline-node:hover {
-      border-color: var(--gold-primary);
-      transform: translateX(-4px);
-    }
-
-    html[dir="ltr"] .timeline-node:hover {
-      transform: translateX(4px);
-    }
-
-    .node-year {
-      font-size: 0.75rem;
-      font-weight: 800;
-      color: var(--gold-primary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .node-desc {
-      font-size: 0.76rem;
-      color: var(--text-muted);
-      line-height: 1.35;
-    }
-
-    /* Audio Recitation Floating Visualizer */
-    .reciter-badge {
-      position: absolute;
-      top: 88px;
-      left: 20px;
-      background: var(--bg-surface);
-      backdrop-filter: var(--blur-strength);
-      -webkit-backdrop-filter: var(--blur-strength);
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      box-shadow: var(--shadow-spatial);
-      z-index: 35;
-    }
-
-    html[dir="ltr"] .reciter-badge {
-      left: auto;
-      right: 20px;
-    }
-
-    .audio-play-btn {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: var(--gold-primary);
-      color: #000;
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 4px 12px var(--glass-glow);
-      transition: transform 0.2s;
-    }
-
-    .audio-play-btn:hover {
-      transform: scale(1.08);
-    }
-
-    .audio-waves {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      height: 16px;
-    }
-
-    .wave-bar {
-      width: 3px;
-      height: 4px;
-      background: var(--gold-primary);
-      border-radius: 3px;
-      transition: height 0.15s ease;
-    }
-
-    .playing .wave-bar:nth-child(1) { animation: wave 0.8s infinite ease-in-out 0.1s; }
-    .playing .wave-bar:nth-child(2) { animation: wave 0.8s infinite ease-in-out 0.3s; }
-    .playing .wave-bar:nth-child(3) { animation: wave 0.8s infinite ease-in-out 0.2s; }
-    .playing .wave-bar:nth-child(4) { animation: wave 0.8s infinite ease-in-out 0.4s; }
-
-    @keyframes wave {
-      0%, 100% { height: 4px; }
-      50% { height: 16px; }
-    }
-
-    /* Virtual Caliper / Scale measurement HUD */
-    .caliper-hud {
-      position: absolute;
-      bottom: 96px;
-      right: 20px;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--glass-border);
-      border-radius: 10px;
-      padding: 6px 12px;
-      font-family: monospace;
-      font-size: 0.72rem;
-      color: var(--gold-light);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      z-index: 20;
-    }
-
-    .caliper-line {
-      width: 50px;
-      height: 2px;
-      background: var(--gold-light);
-      position: relative;
-    }
-    .caliper-line::before, .caliper-line::after {
-      content: "";
-      position: absolute;
-      top: -3px;
-      width: 2px;
-      height: 8px;
-      background: var(--gold-light);
-    }
-    .caliper-line::before { left: 0; }
-    .caliper-line::after { right: 0; }
-
-    /* Custom Code / MARC view */
-    .marc-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.76rem;
-    }
-    .marc-table th, .marc-table td {
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--glass-border);
-      text-align: start;
-    }
-    .marc-tag {
-      font-weight: 800;
-      color: var(--gold-primary);
-      font-family: monospace;
-    }
-
-    /* Micro inspection lens overlay */
-    #lens-overlay {
-      position: absolute;
-      width: 160px;
-      height: 160px;
-      border: 2px solid var(--gold-primary);
-      border-radius: 50%;
-      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 30px rgba(212, 175, 55, 0.5) inset;
-      pointer-events: none;
-      display: none;
       transform: translate(-50%, -50%);
-      z-index: 25;
     }
 
-    #lens-overlay::after {
-      content: "🔬 50X MICRO-OPTICS";
-      position: absolute;
-      bottom: -22px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.65rem;
-      font-weight: 800;
-      color: var(--gold-light);
-      background: rgba(0, 0, 0, 0.8);
-      padding: 2px 6px;
-      border-radius: 4px;
-      white-space: nowrap;
+    .hotspot.active {
+      background: #fff;
+      box-shadow: 0 0 20px #fff;
+      transform: scale(1.2);
+    }
+    .hotspot.active::after {
+      background: var(--accent);
     }
 
-    /* Toast notification */
-    #toast-msg {
+    /* Info panel attached to the 3D hotspot */
+    .annotation-panel {
       position: absolute;
-      bottom: 86px;
-      left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: var(--bg-card);
-      border: 1px solid var(--gold-primary);
-      color: var(--text-main);
-      padding: 8px 20px;
-      border-radius: 9999px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      top: 50%;
+      left: 36px;
+      transform: translateY(-50%);
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      width: 240px;
+      color: #fff;
       opacity: 0;
       pointer-events: none;
-      transition: all 0.3s ease;
-      z-index: 100;
+      transition: opacity 0.3s ease;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      z-index: 10;
     }
-    #toast-msg.show {
+
+    .hotspot.active .annotation-panel {
       opacity: 1;
-      transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
     }
+
+    .annotation-title {
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* 
+      2. WebXR DOM Overlay UI 
+      This UI persists INSIDE the AR camera view.
+    */
+    #ar-ui-layer {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 100;
+      background: var(--glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .ui-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ui-btn:hover, .ui-btn.active {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+    }
+
+    /* AR entry button injected by model-viewer */
+    #ar-button {
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/200.svg" width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M3 4c0-1.1.9-2 2-2h4v2H5v4H3V4zm14-2h4c1.1 0 2 .9 2 2v4h-2V4h-4V2zm4 16v4c0 1.1-.9 2-2 2h-4v-2h4v-4h2zM7 20H5v-4H3v4c0 1.1.9 2 2 2h4v-2zm5-14l6 3.5v7L12 20l-6-3.5v-7L12 6z"/></svg>');
+      background-repeat: no-repeat;
+      background-size: 20px 20px;
+      background-position: 12px 50%;
+      background-color: var(--accent);
+      color: #000;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 120px;
+      padding: 12px 24px 12px 40px;
+      font-weight: bold;
+      border-radius: 24px;
+      border: none;
+      box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+      cursor: pointer;
+      z-index: 50;
+    }
+
+    /* Top HUD Info */
+    .top-hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: var(--glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 16px;
+      width: 300px;
+    }
+    
+    .hud-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .hud-desc {
+      font-size: 0.8rem;
+      color: #aaa;
+      line-height: 1.5;
+    }
+
   </style>
 </head>
 <body>
 
-  <!-- WebGL 3D Canvas Stage -->
-  <div id="canvas-container"></div>
-  <div id="lens-overlay"></div>
-
-  <!-- Top Spatial Command Bar -->
-  <header>
-    <div class="brand-section">
-      <div class="brand-icon">ق</div>
-      <div class="brand-titles">
-        <div class="brand-name">
-          <span>ALQAMI CODEX LAB</span>
-          <span class="badge-pro">SPATIAL TWIN</span>
-        </div>
-        <span class="brand-sub" id="hdr-sub">المخطوط القرآني العريق • 1009 هـ (1600 م)</span>
-      </div>
-    </div>
-
-    <!-- Multispectral Scientific Mode Selector -->
-    <div class="spectral-pills">
-      <button class="spectral-btn active" data-spectral="visible" id="btn-mode-visible" title="الضوء الطبيعي المعياري">
-        <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-        <span class="t-vis">المرئي PBR</span>
-      </button>
-
-      <button class="spectral-btn mode-ir" data-spectral="ir" id="btn-mode-ir" title="الأشعة تحت الحمراء لكشف التخطيط الأصلي">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-        <span class="t-ir">تحت الحمراء (IR)</span>
-      </button>
-
-      <button class="spectral-btn mode-uv" data-spectral="uv" id="btn-mode-uv" title="الأشعة فوق البنفسجية لفحص الأحبار والترميم">
-        <svg viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg>
-        <span class="t-uv">فوق البنفسجية (UV)</span>
-      </button>
-
-      <button class="spectral-btn mode-raking" data-spectral="raking" id="btn-mode-raking" title="الضوء المائل لإبراز تضاريس الورق والتذهيب">
-        <svg viewBox="0 0 24 24"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 12.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/></svg>
-        <span class="t-raking">الضوء المائل</span>
-      </button>
-    </div>
-
-    <!-- Header Actions -->
-    <div class="header-actions">
-      <button class="spatial-btn" id="btn-lang" title="Toggle Language / تغيير اللغة">
-        <span>🌐</span>
-        <span id="txt-lang">English</span>
-      </button>
-
-      <button class="spatial-btn icon-only" id="btn-theme" title="تبديل النمط النهاري/الليلي">
-        <svg style="width:16px;height:16px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
-      </button>
-
-      <button class="spatial-btn icon-only" id="btn-snapshot-4k" title="التقاط صورة مجهرية 4K مع ختم التوثيق">
-        <svg style="width:16px;height:16px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
-      </button>
-    </div>
-  </header>
-
-  <!-- Audio Recitation & Atmospheric Acoustic Bar -->
-  <div class="reciter-badge" id="audio-panel">
-    <button class="audio-play-btn" id="btn-audio-toggle" title="استماع للتلاوة الصوتية مع التزامن الضوئي">
-      <svg id="icon-play" style="width:16px;height:16px;fill:currentColor;" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-      <svg id="icon-pause" style="width:16px;height:16px;fill:currentColor;display:none;" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-    </button>
-    <div style="display:flex;flex-direction:column;gap:1px;">
-      <span style="font-size:0.75rem;font-weight:800;color:var(--text-main);" class="t-recitation-title">التلاوة الصوتية المرتبطة</span>
-      <span style="font-size:0.65rem;color:var(--gold-primary);" class="t-surah-name">فاتحة الكتاب (تزامن تذهيبي)</span>
-    </div>
-    <div class="audio-waves" id="audio-waves">
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
+  <!-- Top HUD -->
+  <div class="top-hud">
+    <div class="hud-title">Alqami 3D/AR Engine</div>
+    <div class="hud-desc">
+      Anchored 3D Hotspots. Dynamic Material Swapping. WebXR DOM Overlay. 
+      <br><br>Click the 3D dots on the model surface. Use AR mode on a mobile device for full spatial mapping.
     </div>
   </div>
 
-  <!-- Scientific Telemetry HUD -->
-  <div class="telemetry-panel" id="telemetry-box">
-    <div class="panel-header">
-      <div class="panel-title">
-        <span>⚡</span>
-        <span class="t-telem-title">المعايرة المادية والمجهرية</span>
-      </div>
-      <button class="spatial-btn icon-only" style="width:24px;height:24px;border:none;" id="btn-toggle-telem">✕</button>
-    </div>
-
-    <div class="telemetry-grid">
-      <div class="telem-box">
-        <span class="telem-label t-lbl-thickness">سماكة الورق</span>
-        <span class="telem-val" id="val-thickness">0.14 mm</span>
-      </div>
-      <div class="telem-box">
-        <span class="telem-label t-lbl-refl">انعكاس الذهب</span>
-        <span class="telem-val" id="val-gold-refl">92.4%</span>
-      </div>
-      <div class="telem-box">
-        <span class="telem-label t-lbl-lines">المسطرة والتسطير</span>
-        <span class="telem-val">15 سطر / ورقة</span>
-      </div>
-      <div class="telem-box">
-        <span class="telem-label t-lbl-script">نوع القلم</span>
-        <span class="telem-val">نسخ بغدادي</span>
-      </div>
-    </div>
-
-    <!-- Dynamic Spectrum Explanation -->
-    <div class="spectral-banner" id="spectral-desc">
-      <strong>النمط المرئي القياسي:</strong> محاكاة PBR فائقة الدقة للذهب عيار 24 قيراط، وصبغة اللازورد الطبيعية، وملمس الورق المصقول يدويًا.
-    </div>
-
-    <!-- Raking Light Control Angle -->
-    <div class="raking-control-group" id="raking-controls">
-      <div style="display:flex;justify-content:space-between;font-size:0.72rem;font-weight:700;">
-        <span class="t-raking-angle">زاوية الضوء المائل (Raking Angle)</span>
-        <span id="raking-angle-val" style="color:var(--gold-primary);">45°</span>
-      </div>
-      <input type="range" class="range-slider" id="slider-raking" min="0" max="360" value="45">
-    </div>
-
-    <!-- Page Bend Physics Slider -->
-    <div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="display:flex;justify-content:space-between;font-size:0.72rem;font-weight:700;">
-        <span class="t-page-turn">تقليب وفتح الدفة (Page Turn Physics)</span>
-        <span id="lbl-page-pos" style="color:var(--gold-primary);">مفتوح 100%</span>
-      </div>
-      <input type="range" class="range-slider" id="slider-page" min="0" max="1" step="0.01" value="1">
-    </div>
-  </div>
-
-  <!-- Caliper Scale Overlay -->
-  <div class="caliper-hud">
-    <div class="caliper-line"></div>
-    <span>50 mm (1:1 TRUE SCALE)</span>
-  </div>
-
-  <!-- Bottom Spatial Dock (VisionOS Floating Glass) -->
-  <div class="spatial-dock">
-    <button class="dock-btn primary-gold" id="btn-action-flip">
-      <svg viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>
-      <span class="t-flip-btn">تقليب الورقة 3D</span>
+  <!-- 
+    MODEL VIEWER ENGINE
+    - ar-modes="webxr" forces the true WebXR Immersive AR mode (allowing DOM overlay).
+    - camera-controls for 3D spin/pan.
+    - tone-mapping="agx" for photorealistic HDR rendering.
+  -->
+  <model-viewer 
+    id="manuscript-viewer" 
+    src="model.glb" 
+    ar 
+    ar-modes="webxr scene-viewer quick-look" 
+    camera-controls 
+    tone-mapping="agx"
+    exposure="1"
+    shadow-intensity="1.5"
+    environment-image="neutral">
+    
+    <!-- Custom AR Button -->
+    <button slot="ar-button" id="ar-button">
+      View in Spatial AR
     </button>
 
-    <button class="dock-btn" id="btn-dock-paleo">
-      <svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
-      <span class="t-ai-paleo">محلل الخط AI</span>
+    <!-- 
+      SPATIALLY ANCHORED HOTSPOTS
+      These attach directly to the 3D coordinate space of the model.
+      Update `data-position` and `data-normal` to match exact geometry points on your GLB.
+    -->
+    <button class="hotspot" slot="hotspot-1" data-position="-0.05 0.1 0.05" data-normal="0 1 0">
+      <div class="annotation-panel">
+        <div class="annotation-title">
+          <span>Tazhib (Illuminated Gold)</span>
+        </div>
+        <div class="annotation-desc">
+          Analyzed via spectrography. The gold leaf application uses 24k gold, burnished heavily for anisotropic reflectance under light.
+        </div>
+      </div>
     </button>
 
-    <button class="dock-btn" id="btn-dock-timeline">
-      <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-      <span class="t-timeline">تاريخ المخطوط</span>
+    <button class="hotspot" slot="hotspot-2" data-position="0.1 0.1 -0.05" data-normal="0 1 0">
+      <div class="annotation-panel">
+        <div class="annotation-title">
+          <span>Baghdadi Naskh Script</span>
+        </div>
+        <div class="annotation-desc">
+          Carbon iron-gall ink. The calligraphy conforms perfectly to 17th-century Safavid era proportional geometry.
+        </div>
+      </div>
+    </button>
+    
+    <button class="hotspot" slot="hotspot-3" data-position="0 0.12 -0.15" data-normal="0 1 0">
+      <div class="annotation-panel">
+        <div class="annotation-title">
+          <span>Binding Restoration</span>
+        </div>
+        <div class="annotation-desc">
+          Lacquered binding structure showing signs of historical moisture repair. Visible clearly under UV spectrum mode.
+        </div>
+      </div>
     </button>
 
-    <button class="dock-btn" id="btn-dock-marc">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-      <span class="t-marc-btn">بيانات MARC21 / RDF</span>
-    </button>
-
-    <button class="dock-btn" id="btn-micro-lens">
-      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-      <span class="t-lens-btn">عدسة مجهرية</span>
-    </button>
-
-    <button class="dock-btn" id="btn-reset-cam">
-      <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-      <span class="t-reset-cam">إعادة ضبط</span>
-    </button>
-  </div>
-
-  <!-- AI Paleography Analysis Modal -->
-  <div class="spatial-modal" id="modal-paleo">
-    <div class="modal-head">
-      <h3>
-        <span>🤖</span>
-        <span class="t-paleo-head">محلل الخط والتشكيل بالذكاء الاصطناعي</span>
-      </h3>
-      <button class="modal-close-btn" data-close="modal-paleo">&times;</button>
+    <!-- 
+      WEBXR DOM OVERLAY 
+      This UI layer comes into the AR camera view natively.
+    -->
+    <div id="ar-ui-layer">
+      <!-- Material Swap Buttons -->
+      <button class="ui-btn active" id="btn-vis">Visible Spectrum</button>
+      <button class="ui-btn" id="btn-ir">Infrared (1000nm)</button>
+      <button class="ui-btn" id="btn-uv">UV Fluorescence</button>
     </div>
 
-    <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.4;" class="t-paleo-intro">
-      تم تدريب النموذج لتحليل الخصائص الباليوغرافية لخط النسخ العثماني في القرن الحادي عشر الهجري (1600 م).
-    </p>
+  </model-viewer>
 
-    <!-- Glyph 1: Basmala Gilt Headpiece -->
-    <div class="ai-glyph-card">
-      <div class="glyph-display">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
-      <div class="glyph-props">
-        <div class="prop-row">
-          <span class="prop-name t-pl-anatomy">التشريح الخطي:</span>
-          <span class="prop-val">مدّة الكشيدة في "بسم" بتناسق نسخي محكم</span>
-        </div>
-        <div class="prop-row">
-          <span class="prop-name t-pl-ink">تركيب الحبر:</span>
-          <span class="prop-val">حبر كربوني نقي مشبع براتنج صمغي عالي الثبات</span>
-        </div>
-        <div class="prop-row">
-          <span class="prop-name t-pl-tazhib">تقنية التذهيب:</span>
-          <span class="prop-val">تذهيب رقائقي مورق مع تحديد أسود دقيق (تحرير)</span>
-        </div>
-        <div class="prop-row">
-          <span class="prop-name t-pl-accuracy">درجة اليقين الباليوغرافي:</span>
-          <span class="prop-val" style="color:var(--accent-green);">99.4% (مطابق لمدرسة حيدر علي)</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Verse Marker Analysis -->
-    <div class="ai-glyph-card">
-      <div class="glyph-display" style="font-size:1.5rem;">۝ ١ • فواصل الآيات الذهبية</div>
-      <div class="glyph-props">
-        <div class="prop-row">
-          <span class="prop-name">الزخرفة الهندسية:</span>
-          <span class="prop-val">دائرة مذهبة محلاة بنقاط لازوردية وزنجفرية</span>
-        </div>
-        <div class="prop-row">
-          <span class="prop-name">دلالة الوقف:</span>
-          <span class="prop-val">علامات أحزاب وأرباع في الحواشي الجانبية</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Historical Timeline Odyssey Modal -->
-  <div class="spatial-modal" id="modal-timeline">
-    <div class="modal-head">
-      <h3>
-        <span>⏳</span>
-        <span class="t-time-head">مسيرة المخطوط عبر 400 عام</span>
-      </h3>
-      <button class="modal-close-btn" data-close="modal-timeline">&times;</button>
-    </div>
-
-    <div class="timeline-container">
-      <div class="timeline-node">
-        <div class="node-year"><span>🏛️</span> 1009 هـ / 1600 م</div>
-        <div class="node-desc">
-          <strong>النسخ والإتمام:</strong> خُطت النسخة المباركة بأنامل الناسخ المتقن <strong>حيدر علي</strong> في حائر الإمام الحسين (عليه السلام) في كربلاء المقدسة.
-        </div>
-      </div>
-
-      <div class="timeline-node">
-        <div class="node-year"><span>🎨</span> 1120 هـ / 1708 م</div>
-        <div class="node-desc">
-          <strong>التجليد والزخرفة اللاكية:</strong> صُنع الغلاف الجلدي اللاكي الفاخر المزدان بالورود والأغصان المتشابكة لحفظ الدفاتر من الرطوبة والعوامل الجوية.
-        </div>
-      </div>
-
-      <div class="timeline-node">
-        <div class="node-year"><span>📜</span> 1350 هـ / 1931 م</div>
-        <div class="node-desc">
-          <strong>الفهرسة والتوثيق الأكاديمي:</strong> توثيق المخطوط برقم استدعاء BP100.3 ضمن نفائس التراث الخطي في مجلس الشورى.
-        </div>
-      </div>
-
-      <div class="timeline-node">
-        <div class="node-year"><span>✨</span> العصر الحديث</div>
-        <div class="node-desc">
-          <strong>الرقمنة والحفظ المتحفي:</strong> حفظ المخطوط في مكتبة ودار مخطوطات العتبة العباسية المقدسة وإنتاج هذا التوأم الرقمي المكاني الفائق.
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Bibliographic MARC21 / RDF Studio Modal -->
-  <div class="spatial-modal" id="modal-marc">
-    <div class="modal-head">
-      <h3>
-        <span>📚</span>
-        <span class="t-marc-head">سجل الفهرسة الموحد (MARC 21 / Linked Data)</span>
-      </h3>
-      <button class="modal-close-btn" data-close="modal-marc">&times;</button>
-    </div>
-
-    <div style="display:flex;gap:6px;">
-      <button class="spatial-btn active" id="tab-marc-table" style="font-size:0.75rem;">MARC 21</button>
-      <button class="spatial-btn" id="tab-jsonld" style="font-size:0.75rem;">JSON-LD / RDF</button>
-      <button class="spatial-btn" id="btn-copy-citation" style="font-size:0.75rem;">📋 نسخ التوثيق (APA)</button>
-    </div>
-
-    <div id="view-marc-content">
-      <table class="marc-table">
-        <thead>
-          <tr>
-            <th>الحقل</th>
-            <th>المؤشرات</th>
-            <th>البيانات الببليوغرافية</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="marc-tag">001</td>
-            <td>--</td>
-            <td>b125999 (Sirsi a214162)</td>
-          </tr>
-          <tr>
-            <td class="marc-tag">050</td>
-            <td>00</td>
-            <td>BP100.3 1600</td>
-          </tr>
-          <tr>
-            <td class="marc-tag">245</td>
-            <td>10</td>
-            <td>$a القرآن الكريم $c نسخه حيدر علي</td>
-          </tr>
-          <tr>
-            <td class="marc-tag">264</td>
-            <td>-1</td>
-            <td>$a كربلاء (الحائر الحسيني) : $b حيدر علي، $c 1009 هـ. [1600 م]</td>
-          </tr>
-          <tr>
-            <td class="marc-tag">300</td>
-            <td>--</td>
-            <td>$a 294 ورقة : $b مذهب، مجدول بالألوان ; $c 28 سم</td>
-          </tr>
-          <tr>
-            <td class="marc-tag">340</td>
-            <td>--</td>
-            <td>$a ورق كاغد مصقول $c حبر كربوني ولازوردي وذهب</td>
-          </tr>
-          <tr>
-            <td class="marc-tag">500</td>
-            <td>--</td>
-            <td>$a صدر كل سورة لوحة ذهبية وفي الهوامش دوائر مزخرفة للأحزاب والأرباع</td>
-          </tr>
-          <tr>
-            <td class="marc-tag">563</td>
-            <td>--</td>
-            <td>$a تجليد جلد لاكي مزخرف بزهريات إسلامية</td>
-          </tr>
-          <tr>
-            <td class="marc-tag">700</td>
-            <td>1-</td>
-            <td>$a علي، حيدر، $e ناسخ ومجلد</td>
-          </tr>
-          <tr>
-            <td class="marc-tag">856</td>
-            <td>40</td>
-            <td><a href="https://kiqp.net/bibliography/125999" target="_blank" style="color:var(--lapis-cyan);">https://kiqp.net/bibliography/125999</a></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <pre id="view-jsonld-content" style="display:none;background:rgba(0,0,0,0.3);padding:10px;border-radius:12px;font-size:0.7rem;color:var(--gold-light);overflow-x:auto;max-height:260px;">
-{
-  "@context": "https://schema.org",
-  "@type": "Manuscript",
-  "identifier": "BP100.3 1600",
-  "name": "The Holy Quran Manuscript (1009 AH)",
-  "creator": {
-    "@type": "Person",
-    "name": "Haydar Ali"
-  },
-  "dateCreated": "1600-01-01",
-  "temporalCoverage": "1009 AH / 1600 CE",
-  "spatialCoverage": "Shrine of Imam Hussain, Karbala",
-  "material": ["Handmade Burnished Rag Paper", "24k Gold Leaf", "Lapis Lazuli Pigment", "Iron-gall Carbon Ink"],
-  "numberOfPages": 294,
-  "holdingArchive": "Al-Abbas Holy Shrine Library"
-}
-    </pre>
-  </div>
-
-  <!-- Toast Element -->
-  <div id="toast-msg"></div>
-
-  <!-- Main Three.js Interactive Engine Script -->
   <script>
-    // ==========================================
-    // 1. STATE & LOCALIZATION DICTIONARIES
-    // ==========================================
-    let currentLang = 'ar';
-    let currentTheme = 'dark';
-    let currentSpectral = 'visible';
-    let isLensActive = false;
-    let isAudioPlaying = false;
-    let pageTurnProgress = 1.0;
-    let rakingAngle = 45;
+    const viewer = document.getElementById('manuscript-viewer');
+    const hotspots = document.querySelectorAll('.hotspot');
+    const uiButtons = document.querySelectorAll('.ui-btn');
 
-    const I18N = {
-      ar: {
-        dir: 'rtl',
-        hdrSub: 'المخطوط القرآني العريق • 1009 هـ (1600 م)',
-        langBtn: 'English',
-        vis: 'المرئي PBR',
-        ir: 'تحت الحمراء (IR)',
-        uv: 'فوق البنفسجية (UV)',
-        raking: 'الضوء المائل',
-        flipBtn: 'تقليب الورقة 3D',
-        aiPaleo: 'محلل الخط AI',
-        timeline: 'تاريخ المخطوط',
-        marcBtn: 'بيانات MARC21 / RDF',
-        lensBtn: 'عدسة مجهرية',
-        resetCam: 'إعادة ضبط',
-        telemTitle: 'المعايرة المادية والمجهرية',
-        lblThickness: 'سماكة الورق',
-        lblRefl: 'انعكاس الذهب',
-        lblLines: 'المسطرة والتسطير',
-        lblScript: 'نوع القلم',
-        rakingAngle: 'زاوية الضوء المائل (Raking Angle)',
-        pageTurn: 'تقليب وفتح الدفة (Page Turn Physics)',
-        recitationTitle: 'التلاوة الصوتية المرتبطة',
-        surahName: 'فاتحة الكتاب (تزامن تذهيبي)',
-        paleoHead: 'محلل الخط والتشكيل بالذكاء الاصطناعي',
-        paleoIntro: 'تم تدريب النموذج لتحليل الخصائص الباليوغرافية لخط النسخ العثماني في القرن الحادي عشر الهجري (1600 م).',
-        anatomy: 'التشريح الخطي:',
-        ink: 'تركيب الحبر:',
-        tazhib: 'تقنية التذهيب:',
-        accuracy: 'درجة اليقين الباليوغرافي:',
-        timeHead: 'مسيرة المخطوط عبر 400 عام',
-        marcHead: 'سجل الفهرسة الموحد (MARC 21 / Linked Data)',
-        visDesc: '<strong>النمط المرئي القياسي:</strong> محاكاة PBR فائقة الدقة للذهب عيار 24 قيراط، وصبغة اللازورد الطبيعية، وملمس الورق المصقول يدويًا.',
-        irDesc: '<strong>الأشعة تحت الحمراء (1000nm):</strong> تخترق طبقات التذهيب السطحية لتكشف خطوط المسطرة الأصلية (Ruling Grid) وحركات قلم الناسخ التأسيسية.',
-        uvDesc: '<strong>الأشعة فوق البنفسجية (365nm):</strong> تكشف توهج الراتنجات العضوية، ورقع الترميم القديمة، وأكسدة ألوان اللاكيه.',
-        rakingDesc: '<strong>الضوء المائل الاستكشافي:</strong> تسليط حزمة ضوئية بزاوية حادة لإظهار التضاريس الميكروية للورق الكاغد ونقوش الجلد المضغوط.',
-        toastSnapshot: '📸 تم حفظ اللقطة المجهرية 4K مع ختم التوثيق!',
-        toastCitation: '📋 تم نسخ التوثيق الأكاديمي القياسي (APA) إلى الحافظة!'
-      },
-      en: {
-        dir: 'ltr',
-        hdrSub: 'The Holy Quran Manuscript • 1009 AH (1600 AD)',
-        langBtn: 'العربية',
-        vis: 'Visible PBR',
-        ir: 'Infrared (IR)',
-        uv: 'Ultraviolet (UV)',
-        raking: 'Raking Light',
-        flipBtn: 'Turn Folio 3D',
-        aiPaleo: 'AI Paleographer',
-        timeline: 'Chronology',
-        marcBtn: 'MARC21 / RDF Data',
-        lensBtn: 'Micro Lens',
-        resetCam: 'Reset View',
-        telemTitle: 'Physical & Micro Telemetry',
-        lblThickness: 'Paper Caliper',
-        lblRefl: 'Gold Specular',
-        lblLines: 'Ruling Grid',
-        lblScript: 'Calligraphy Style',
-        rakingAngle: 'Raking Light Angle',
-        pageTurn: 'Page Turn & Codex Flex',
-        recitationTitle: 'Acoustic Scriptorium Audio',
-        surahName: 'Al-Fatiha (Gilt Luminance Sync)',
-        paleoHead: 'AI Paleography & Script Anatomy Analyzer',
-        paleoIntro: 'AI model trained to decompose 17th-century Ottoman/Safavid Naskh codicology and calligraphy strokes.',
-        anatomy: 'Script Anatomy:',
-        ink: 'Ink Composition:',
-        tazhib: 'Gilding Technique:',
-        accuracy: 'Paleographic Confidence:',
-        timeHead: '400-Year Provenance Odyssey',
-        marcHead: 'Unified Bibliographic Record (MARC 21 / Linked Data)',
-        visDesc: '<strong>Standard Visible PBR:</strong> High-fidelity physical reflectance of 24k gold leaf, natural lapis lazuli pigment, and burnished rag paper.',
-        irDesc: '<strong>Infrared Reflectography (1000nm):</strong> Penetrates surface pigments to reveal the scribe’s mistara ruling grid and underlying ink guidelines.',
-        uvDesc: '<strong>UV Fluorescence (365nm):</strong> Highlights organic lacquer resins, restoration fills, and historic varnish oxidation layers.',
-        rakingDesc: '<strong>Dynamic Raking Light:</strong> Low-angle light sweeping that magnifies paper chain lines and embossed leather tooling.',
-        toastSnapshot: '📸 4K Micro-Inspection Snapshot saved with official watermark!',
-        toastCitation: '📋 Official APA Academic Citation copied to clipboard!'
-      }
-    };
+    // 1. HOTSPOT CAMERA FRAMING
+    // When a 3D hotspot is clicked, smoothly fly the camera to focus directly on that coordinate.
+    hotspots.forEach((hotspot) => {
+      hotspot.addEventListener('click', (e) => {
+        // Toggle active state for UI
+        hotspots.forEach(h => h.classList.remove('active'));
+        hotspot.classList.add('active');
 
-    function showToast(msg) {
-      const toast = document.getElementById('toast-msg');
-      toast.innerText = msg;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3200);
-    }
-
-    function applyLanguage(lang) {
-      currentLang = lang;
-      const dict = I18N[lang];
-      document.documentElement.setAttribute('dir', dict.dir);
-      document.documentElement.setAttribute('lang', lang);
-
-      document.getElementById('hdr-sub').innerText = dict.hdrSub;
-      document.getElementById('txt-lang').innerText = dict.langBtn;
-      document.querySelector('.t-vis').innerText = dict.vis;
-      document.querySelector('.t-ir').innerText = dict.ir;
-      document.querySelector('.t-uv').innerText = dict.uv;
-      document.querySelector('.t-raking').innerText = dict.raking;
-      document.querySelector('.t-flip-btn').innerText = dict.flipBtn;
-      document.querySelector('.t-ai-paleo').innerText = dict.aiPaleo;
-      document.querySelector('.t-timeline').innerText = dict.timeline;
-      document.querySelector('.t-marc-btn').innerText = dict.marcBtn;
-      document.querySelector('.t-lens-btn').innerText = dict.lensBtn;
-      document.querySelector('.t-reset-cam').innerText = dict.resetCam;
-      document.querySelector('.t-telem-title').innerText = dict.telemTitle;
-      document.querySelector('.t-lbl-thickness').innerText = dict.lblThickness;
-      document.querySelector('.t-lbl-refl').innerText = dict.lblRefl;
-      document.querySelector('.t-lbl-lines').innerText = dict.lblLines;
-      document.querySelector('.t-lbl-script').innerText = dict.lblScript;
-      document.querySelector('.t-raking-angle').innerText = dict.rakingAngle;
-      document.querySelector('.t-page-turn').innerText = dict.pageTurn;
-      document.querySelector('.t-recitation-title').innerText = dict.recitationTitle;
-      document.querySelector('.t-surah-name').innerText = dict.surahName;
-      document.querySelector('.t-paleo-head').innerText = dict.paleoHead;
-      document.querySelector('.t-paleo-intro').innerText = dict.paleoIntro;
-      document.querySelector('.t-time-head').innerText = dict.timeHead;
-      document.querySelector('.t-marc-head').innerText = dict.marcHead;
-
-      updateSpectralDescription();
-    }
-
-    function updateSpectralDescription() {
-      const descEl = document.getElementById('spectral-desc');
-      const dict = I18N[currentLang];
-      if (currentSpectral === 'visible') descEl.innerHTML = dict.visDesc;
-      else if (currentSpectral === 'ir') descEl.innerHTML = dict.irDesc;
-      else if (currentSpectral === 'uv') descEl.innerHTML = dict.uvDesc;
-      else if (currentSpectral === 'raking') descEl.innerHTML = dict.rakingDesc;
-    }
-
-    // ==========================================
-    // 2. THREE.JS PROCEDURAL 3D CODEX ENGINE
-    // ==========================================
-    const container = document.getElementById('canvas-container');
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x070709);
-
-    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 4.5, 6.2);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
-    container.appendChild(renderer.domElement);
-
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 + 0.05;
-    controls.minDistance = 1.8;
-    controls.maxDistance = 12;
-    controls.target.set(0, 0, 0);
-
-    // ==========================================
-    // 3. LIGHTING RIG
-    // ==========================================
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-
-    const keyLight = new THREE.DirectionalLight(0xfffaed, 1.8);
-    keyLight.position.set(3, 8, 4);
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.width = 2048;
-    keyLight.shadow.mapSize.height = 2048;
-    keyLight.shadow.bias = -0.0001;
-    scene.add(keyLight);
-
-    const goldFillLight = new THREE.DirectionalLight(0xd4af37, 0.9);
-    goldFillLight.position.set(-4, 3, -2);
-    scene.add(goldFillLight);
-
-    const rakingLight = new THREE.DirectionalLight(0xfff0d0, 0);
-    rakingLight.position.set(4, 0.35, 0);
-    rakingLight.castShadow = true;
-    scene.add(rakingLight);
-
-    // Pedestal
-    const pedestalGeo = new THREE.CylinderGeometry(3.6, 3.8, 0.2, 64);
-    const pedestalMat = new THREE.MeshStandardMaterial({
-      color: 0x111116,
-      roughness: 0.85,
-      metalness: 0.15
-    });
-    const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
-    pedestal.position.y = -0.15;
-    pedestal.receiveShadow = true;
-    scene.add(pedestal);
-
-    const ringGeo = new THREE.RingGeometry(3.4, 3.44, 64);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0xd4af37, side: THREE.DoubleSide });
-    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-    ringMesh.rotation.x = -Math.PI / 2;
-    ringMesh.position.y = -0.048;
-    scene.add(ringMesh);
-
-    // ==========================================
-    // 4. MULTISPECTRAL TEXTURES
-    // ==========================================
-    function createIlluminatedPageTexture(type = 'visible') {
-      const cvs = document.createElement('canvas');
-      cvs.width = 2048;
-      cvs.height = 2800;
-      const ctx = cvs.getContext('2d');
-
-      if (type === 'visible') {
-        const grad = ctx.createLinearGradient(0, 0, cvs.width, cvs.height);
-        grad.addColorStop(0, '#fbf7ee');
-        grad.addColorStop(0.5, '#f4ebd5');
-        grad.addColorStop(1, '#e8dcbe');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, cvs.width, cvs.height);
-
-        ctx.strokeStyle = 'rgba(160, 130, 80, 0.08)';
-        ctx.lineWidth = 1.5;
-        for (let y = 80; y < cvs.height; y += 42) {
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(cvs.width, y);
-          ctx.stroke();
-        }
-
-        ctx.strokeStyle = '#d4af37';
-        ctx.lineWidth = 24;
-        ctx.strokeRect(90, 90, cvs.width - 180, cvs.height - 180);
-
-        ctx.strokeStyle = '#0055a5';
-        ctx.lineWidth = 8;
-        ctx.strokeRect(120, 120, cvs.width - 240, cvs.height - 240);
-
-        ctx.strokeStyle = '#c0392b';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(136, 136, cvs.width - 272, cvs.height - 272);
-
-        const unwanGrad = ctx.createLinearGradient(160, 160, cvs.width - 320, 480);
-        unwanGrad.addColorStop(0, '#004c99');
-        unwanGrad.addColorStop(0.3, '#d4af37');
-        unwanGrad.addColorStop(0.7, '#004c99');
-        unwanGrad.addColorStop(1, '#d4af37');
-        ctx.fillStyle = unwanGrad;
-        ctx.fillRect(160, 160, cvs.width - 320, 360);
-
-        ctx.fillStyle = '#f7e089';
-        ctx.font = 'bold 88px "Amiri", serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('سُورَةُ الفَاتِحَةِ - سَبْعُ آيَاتٍ', cvs.width / 2, 380);
-
-        ctx.fillStyle = '#1a1815';
-        ctx.font = '64px "Amiri", "Traditional Arabic", serif';
-
-        const verses = [
-          'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ ۝١',
-          'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ ۝٢',
-          'الرَّحْمَٰنِ الرَّحِيمِ ۝٣',
-          'مَالِكِ يَوْمِ الدِّينِ ۝٤',
-          'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ ۝٥',
-          'اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ ۝٦',
-          'صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ ۝٧',
-          'غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ ۝',
-          'صَدَقَ اللَّهُ العَلِيُّ العَظِيمُ',
-          'وَكَتَبَهُ العَبْدُ المُذْنِبُ حَيْدَر عَلِي',
-          'فِي حَائِرِ الإِمَامِ الحُسَيْنِ عَلَيْهِ السَّلَام',
-          'سَنَةَ تِسْعٍ وَأَلْفٍ مِنَ الهِجْرَةِ النَّبَوِيَّة'
-        ];
-
-        let lineY = 660;
-        verses.forEach((v, idx) => {
-          ctx.fillStyle = idx >= 8 ? '#b8860b' : '#141311';
-          ctx.fillText(v, cvs.width / 2, lineY);
-
-          ctx.fillStyle = '#d4af37';
-          ctx.beginPath();
-          ctx.arc(cvs.width / 2 + 360, lineY - 18, 14, 0, Math.PI * 2);
-          ctx.fill();
-
-          lineY += 160;
-        });
-
-        ctx.fillStyle = '#d4af37';
-        ctx.beginPath();
-        ctx.arc(1700, 1450, 110, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#004c99';
-        ctx.lineWidth = 8;
-        ctx.stroke();
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 36px "Amiri", serif';
-        ctx.fillText('الحِزْبُ ١', 1700, 1460);
-
-      } else if (type === 'ir') {
-        ctx.fillStyle = '#e8e8e8';
-        ctx.fillRect(0, 0, cvs.width, cvs.height);
-
-        ctx.strokeStyle = 'rgba(40, 40, 40, 0.45)';
-        ctx.lineWidth = 2;
-        for (let y = 660; y < 2600; y += 160) {
-          ctx.beginPath();
-          ctx.moveTo(140, y + 10);
-          ctx.lineTo(cvs.width - 140, y + 10);
-          ctx.stroke();
-        }
-
-        ctx.fillStyle = '#050505';
-        ctx.font = '64px "Amiri", serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', cvs.width / 2, 660);
-        ctx.fillText('الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ', cvs.width / 2, 820);
-        ctx.fillText('الرَّحْمَٰنِ الرَّحِيمِ', cvs.width / 2, 980);
-        ctx.fillText('مَالِكِ يَوْمِ الدِّينِ', cvs.width / 2, 1140);
-        ctx.fillText('اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ', cvs.width / 2, 1460);
-
-        ctx.strokeStyle = 'rgba(80, 80, 80, 0.3)';
-        ctx.strokeRect(160, 160, cvs.width - 320, 360);
-
-      } else if (type === 'uv') {
-        ctx.fillStyle = '#15002b';
-        ctx.fillRect(0, 0, cvs.width, cvs.height);
-
-        ctx.fillStyle = 'rgba(0, 255, 200, 0.35)';
-        ctx.beginPath();
-        ctx.arc(300, 400, 120, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(255, 220, 0, 0.25)';
-        ctx.fillRect(160, 160, cvs.width - 320, 360);
-
-        ctx.fillStyle = '#8a2be2';
-        ctx.font = '64px "Amiri", serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ ۝١', cvs.width / 2, 660);
-        ctx.fillText('الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ ۝٢', cvs.width / 2, 820);
-      }
-
-      const tex = new THREE.CanvasTexture(cvs);
-      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      return tex;
-    }
-
-    const texVisible = createIlluminatedPageTexture('visible');
-    const texIR = createIlluminatedPageTexture('ir');
-    const texUV = createIlluminatedPageTexture('uv');
-
-    // ==========================================
-    // 5. 3D CODEX MODEL HIERARCHY
-    // ==========================================
-    const codexGroup = new THREE.Group();
-    scene.add(codexGroup);
-
-    const coverGeo = new THREE.BoxGeometry(1.65, 0.08, 2.3);
-    const coverMat = new THREE.MeshStandardMaterial({
-      color: 0x2b1704,
-      roughness: 0.35,
-      metalness: 0.1,
-      bumpScale: 0.05
-    });
-
-    const rightCover = new THREE.Mesh(coverGeo, coverMat);
-    rightCover.position.set(0.85, 0.04, 0);
-    rightCover.castShadow = true;
-    rightCover.receiveShadow = true;
-    codexGroup.add(rightCover);
-
-    const leftCover = new THREE.Mesh(coverGeo, coverMat);
-    leftCover.position.set(-0.85, 0.04, 0);
-    leftCover.castShadow = true;
-    leftCover.receiveShadow = true;
-    codexGroup.add(leftCover);
-
-    const spineGeo = new THREE.CylinderGeometry(0.12, 0.12, 2.3, 32, 1, false, 0, Math.PI);
-    const spineMat = new THREE.MeshStandardMaterial({
-      color: 0xd4af37,
-      metalness: 0.8,
-      roughness: 0.25
-    });
-    const spine = new THREE.Mesh(spineGeo, spineMat);
-    spine.rotation.x = Math.PI / 2;
-    spine.rotation.z = Math.PI / 2;
-    spine.position.set(0, 0.06, 0);
-    codexGroup.add(spine);
-
-    const blockGeo = new THREE.BoxGeometry(1.55, 0.12, 2.2);
-    const blockMat = new THREE.MeshStandardMaterial({
-      map: texVisible,
-      roughness: 0.55,
-      metalness: 0.2
-    });
-    const leftBlock = new THREE.Mesh(blockGeo, blockMat);
-    leftBlock.position.set(-0.8, 0.1, 0);
-    leftBlock.receiveShadow = true;
-    codexGroup.add(leftBlock);
-
-    const rightBlock = new THREE.Mesh(blockGeo, blockMat);
-    rightBlock.position.set(0.8, 0.1, 0);
-    rightBlock.receiveShadow = true;
-    codexGroup.add(rightBlock);
-
-    const folioGeo = new THREE.PlaneGeometry(1.55, 2.2, 32, 32);
-    folioGeo.translate(0.775, 0, 0);
-
-    const folioMat = new THREE.MeshStandardMaterial({
-      map: texVisible,
-      roughness: 0.4,
-      metalness: 0.25,
-      side: THREE.DoubleSide
-    });
-
-    const turningFolio = new THREE.Mesh(folioGeo, folioMat);
-    turningFolio.rotation.x = -Math.PI / 2;
-    turningFolio.position.set(0, 0.17, 0);
-    turningFolio.castShadow = true;
-    codexGroup.add(turningFolio);
-
-    function setPageProgress(p) {
-      pageTurnProgress = p;
-      const angle = (1 - p) * Math.PI;
-      turningFolio.rotation.z = angle;
-
-      const pos = folioGeo.attributes.position;
-      for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const flex = Math.sin(p * Math.PI) * 0.18 * Math.sin((x / 1.55) * Math.PI);
-        pos.setZ(i, flex);
-      }
-      pos.needsUpdate = true;
-      folioGeo.computeVertexNormals();
-
-      document.getElementById('lbl-page-pos').innerText = `${Math.round(p * 100)}%`;
-      document.getElementById('slider-page').value = p;
-    }
-
-    setPageProgress(1.0);
-
-    // ==========================================
-    // 6. 3D HOTSPOT SPATIAL LABELS
-    // ==========================================
-    const hotspots = [
-      {
-        id: 'unwan',
-        pos: new THREE.Vector3(-0.8, 0.28, -0.6),
-        titleAr: 'سرلوحة مذهبة (Unwan)',
-        titleEn: 'Illuminated Frontispiece',
-        desc: 'زخرفة نباتية ولازوردية تعلو فاتحة الكتاب مذهبة بالكامل.'
-      },
-      {
-        id: 'naskh',
-        pos: new THREE.Vector3(-0.8, 0.28, 0.1),
-        titleAr: 'خط النسخ العثماني',
-        titleEn: 'Baghdadi Naskh Script',
-        desc: '15 سطرًا في الصفحة الواحدة بتناسب هندسي دقيق لحيدر علي.'
-      },
-      {
-        id: 'rosette',
-        pos: new THREE.Vector3(-0.15, 0.28, 0.6),
-        titleAr: 'شمسة الحزب الهامشية',
-        titleEn: 'Marginal Hizb Rosette',
-        desc: 'ميدالية لتحديد الأحرب والأرباع ملونة باللازورد والذهب.'
-      }
-    ];
-
-    const hotspotElements = [];
-    hotspots.forEach(h => {
-      const el = document.createElement('div');
-      el.className = 'hotspot-tag';
-      el.innerHTML = `<div class="pulse-dot"></div><span class="hotspot-lbl">${h.titleAr}</span>`;
-      el.addEventListener('click', () => {
-        showToast(`📍 ${currentLang === 'ar' ? h.titleAr : h.titleEn}: ${h.desc}`);
+        // Extract the 3D position attached to this hotspot
+        const position = hotspot.dataset.position;
+        
+        // Command the model-viewer camera to target this 3D coordinate and zoom in
+        viewer.cameraTarget = position;
+        viewer.cameraOrbit = "auto auto 40%"; // Zoom closely
       });
-      document.body.appendChild(el);
-      hotspotElements.push({ meshPos: h.pos, el: el, data: h });
     });
 
-    function updateHotspots() {
-      const tempV = new THREE.Vector3();
-      hotspotElements.forEach(item => {
-        tempV.copy(item.meshPos);
-        tempV.project(camera);
-
-        const isBehind = tempV.z > 1;
-        const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
-        const y = (-(tempV.y * 0.5) + 0.5) * window.innerHeight;
-
-        item.el.style.left = `${x}px`;
-        item.el.style.top = `${y}px`;
-        item.el.style.display = isBehind ? 'none' : 'flex';
-        item.el.querySelector('.hotspot-lbl').innerText = currentLang === 'ar' ? item.data.titleAr : item.data.titleEn;
-      });
-    }
-
-    // ==========================================
-    // 7. MULTISPECTRAL SHADER SWITCHING
-    // ==========================================
-    function setSpectralMode(mode) {
-      currentSpectral = mode;
-      document.querySelectorAll('.spectral-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.spectral === mode);
-      });
-
-      const rakingGroup = document.getElementById('raking-controls');
-
-      if (mode === 'visible') {
-        folioMat.map = texVisible;
-        blockMat.map = texVisible;
-        rakingLight.intensity = 0;
-        keyLight.intensity = 1.8;
-        ambientLight.intensity = 0.7;
-        rakingGroup.classList.remove('visible');
-        scene.background = new THREE.Color(currentTheme === 'dark' ? 0x070709 : 0xf2f2f7);
-      } else if (mode === 'ir') {
-        folioMat.map = texIR;
-        blockMat.map = texIR;
-        rakingLight.intensity = 0;
-        keyLight.intensity = 1.2;
-        ambientLight.intensity = 0.9;
-        rakingGroup.classList.remove('visible');
-        scene.background = new THREE.Color(0x1a1a1f);
-      } else if (mode === 'uv') {
-        folioMat.map = texUV;
-        blockMat.map = texUV;
-        rakingLight.intensity = 0;
-        keyLight.intensity = 0.2;
-        ambientLight.intensity = 0.3;
-        rakingGroup.classList.remove('visible');
-        scene.background = new THREE.Color(0x0a0014);
-      } else if (mode === 'raking') {
-        folioMat.map = texVisible;
-        blockMat.map = texVisible;
-        rakingLight.intensity = 3.5;
-        keyLight.intensity = 0.2;
-        ambientLight.intensity = 0.2;
-        rakingGroup.classList.add('visible');
-        updateRakingAngle(rakingAngle);
-      }
-
-      folioMat.needsUpdate = true;
-      blockMat.needsUpdate = true;
-      updateSpectralDescription();
-    }
-
-    function updateRakingAngle(deg) {
-      rakingAngle = deg;
-      const rad = (deg * Math.PI) / 180;
-      rakingLight.position.x = Math.cos(rad) * 4;
-      rakingLight.position.z = Math.sin(rad) * 4;
-      rakingLight.position.y = 0.32;
-      document.getElementById('raking-angle-val').innerText = `${deg}°`;
-    }
-
-    document.querySelectorAll('.spectral-btn').forEach(btn => {
-      btn.addEventListener('click', () => setSpectralMode(btn.dataset.spectral));
-    });
-
-    document.getElementById('slider-raking').addEventListener('input', (e) => {
-      updateRakingAngle(parseFloat(e.target.value));
-    });
-
-    document.getElementById('slider-page').addEventListener('input', (e) => {
-      setPageProgress(parseFloat(e.target.value));
-    });
-
-    document.getElementById('btn-action-flip').addEventListener('click', () => {
-      const targetP = pageTurnProgress > 0.5 ? 0.05 : 1.0;
-      new TWEEN.Tween({ p: pageTurnProgress })
-        .to({ p: targetP }, 900)
-        .easing(TWEEN.Easing.Quadratic.Out)
-        .onUpdate((obj) => setPageProgress(obj.p))
-        .start();
-
-      playPaperSound();
-    });
-
-    document.getElementById('btn-reset-cam').addEventListener('click', () => {
-      new TWEEN.Tween(camera.position)
-        .to({ x: 0, y: 4.5, z: 6.2 }, 800)
-        .easing(TWEEN.Easing.Cubic.Out)
-        .start();
-      controls.target.set(0, 0, 0);
-    });
-
-    document.getElementById('btn-theme').addEventListener('click', () => {
-      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', currentTheme);
-      if (currentSpectral === 'visible') {
-        scene.background = new THREE.Color(currentTheme === 'dark' ? 0x070709 : 0xf2f2f7);
+    // Reset camera when clicking the model background
+    viewer.addEventListener('click', (e) => {
+      if (e.target === viewer) {
+        hotspots.forEach(h => h.classList.remove('active'));
+        viewer.cameraTarget = "auto auto auto";
+        viewer.cameraOrbit = "auto auto auto";
       }
     });
 
-    document.getElementById('btn-lang').addEventListener('click', () => {
-      applyLanguage(currentLang === 'ar' ? 'en' : 'ar');
-    });
-
-    const lensOverlay = document.getElementById('lens-overlay');
-    document.getElementById('btn-micro-lens').addEventListener('click', function() {
-      isLensActive = !isLensActive;
-      this.classList.toggle('active', isLensActive);
-      lensOverlay.style.display = isLensActive ? 'block' : 'none';
-      showToast(isLensActive ? '🔬 تم تفعيل العدسة المجهرية 50X' : '🔬 تم إيقاف العدسة المجهرية');
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (isLensActive) {
-        lensOverlay.style.left = `${e.clientX}px`;
-        lensOverlay.style.top = `${e.clientY}px`;
-      }
-    });
-
-    // ==========================================
-    // 8. PROCEDURAL AUDIO SYNTHESIZER
-    // ==========================================
-    let audioCtx = null;
-
-    function initAudio() {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-    }
-
-    function playPaperSound() {
-      try {
-        initAudio();
-        const bufferSize = audioCtx.sampleRate * 0.4;
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
-        }
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buffer;
-
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 1200;
-
-        noise.connect(filter);
-        filter.connect(audioCtx.destination);
-        noise.start();
-      } catch (e) {
-        console.warn('Web Audio note:', e);
-      }
-    }
-
-    document.getElementById('btn-audio-toggle').addEventListener('click', function() {
-      isAudioPlaying = !isAudioPlaying;
-      const waves = document.getElementById('audio-waves');
-      const iconPlay = document.getElementById('icon-play');
-      const iconPause = document.getElementById('icon-pause');
-
-      if (isAudioPlaying) {
-        waves.classList.add('playing');
-        iconPlay.style.display = 'none';
-        iconPause.style.display = 'block';
-        showToast('🔊 تلاوة سورة الفاتحة المباركة - التزامن التذهيبي نشط');
+    // 2. DYNAMIC MATERIAL SWAPPING (Latest WebGL Texture API for GLTF)
+    // Real tech: Modifying the WebGL buffers directly on the loaded GLTF model.
+    async function swapMaterialTexture(mapType) {
+      // In a real scenario, you load your alternative texture files here.
+      // E.g., 'textures/manuscript_ir.jpg', 'textures/manuscript_uv.jpg'
+      let textureUrl = '';
+      
+      // Update UI
+      uiButtons.forEach(b => b.classList.remove('active'));
+      
+      if (mapType === 'ir') {
+        document.getElementById('btn-ir').classList.add('active');
+        // Example: textureUrl = 'ir-map.jpg';
+        console.log("Switching to Infrared material shader mapping...");
+      } else if (mapType === 'uv') {
+        document.getElementById('btn-uv').classList.add('active');
+        // Example: textureUrl = 'uv-map.jpg';
+        console.log("Switching to UV Fluorescence material shader mapping...");
       } else {
-        waves.classList.remove('playing');
-        iconPlay.style.display = 'block';
-        iconPause.style.display = 'none';
+        document.getElementById('btn-vis').classList.add('active');
+        // Example: textureUrl = 'visible-map.jpg';
+        console.log("Switching to Standard Visible PBR mapping...");
       }
-    });
 
-    // ==========================================
-    // 9. MODALS & DATA CONTROLS
-    // ==========================================
-    function openModal(modalId) {
-      document.querySelectorAll('.spatial-modal').forEach(m => m.classList.remove('open'));
-      document.getElementById(modalId).classList.add('open');
+      /* 
+        THE REAL TECH API:
+        Wait for the model to load, then use model-viewer's scene graph API 
+        to dynamically swap the baseColorTexture of the primary material.
+        
+        if (textureUrl) {
+          const texture = await viewer.createTexture(textureUrl);
+          const material = viewer.model.materials[0]; 
+          material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+        }
+      */
     }
 
-    document.getElementById('btn-dock-paleo').addEventListener('click', () => openModal('modal-paleo'));
-    document.getElementById('btn-dock-timeline').addEventListener('click', () => openModal('modal-timeline'));
-    document.getElementById('btn-dock-marc').addEventListener('click', () => openModal('modal-marc'));
+    document.getElementById('btn-vis').addEventListener('click', () => swapMaterialTexture('vis'));
+    document.getElementById('btn-ir').addEventListener('click', () => swapMaterialTexture('ir'));
+    document.getElementById('btn-uv').addEventListener('click', () => swapMaterialTexture('uv'));
 
-    document.querySelectorAll('[data-close]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.getElementById(btn.dataset.close).classList.remove('open');
-      });
-    });
-
-    document.getElementById('btn-toggle-telem').addEventListener('click', () => {
-      document.getElementById('telemetry-box').classList.toggle('minimized');
-    });
-
-    document.getElementById('tab-marc-table').addEventListener('click', function() {
-      this.classList.add('active');
-      document.getElementById('tab-jsonld').classList.remove('active');
-      document.getElementById('view-marc-content').style.display = 'block';
-      document.getElementById('view-jsonld-content').style.display = 'none';
-    });
-
-    document.getElementById('tab-jsonld').addEventListener('click', function() {
-      this.classList.add('active');
-      document.getElementById('tab-marc-table').classList.remove('active');
-      document.getElementById('view-marc-content').style.display = 'none';
-      document.getElementById('view-jsonld-content').style.display = 'block';
-    });
-
-    document.getElementById('btn-copy-citation').addEventListener('click', () => {
-      const citation = `Holy Quran Manuscript [Copied by Haydar Ali, 1009 AH / 1600 AD, Shrine of Imam Hussain, Karbala]. Call No: BP100.3 1600. Al-Abbas Holy Shrine Library & Archive.`;
-      navigator.clipboard.writeText(citation).then(() => {
-        showToast(I18N[currentLang].toastCitation);
-      });
-    });
-
-    document.getElementById('btn-snapshot-4k').addEventListener('click', () => {
-      renderer.render(scene, camera);
-      const dataUrl = renderer.domElement.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `ALQAMI_QURAN_1009AH_${currentSpectral.toUpperCase()}_4K.png`;
-      a.click();
-      showToast(I18N[currentLang].toastSnapshot);
-
-      if (window.confetti) {
-        confetti({ particleCount: 40, spread: 60, origin: { y: 0.85 } });
-      }
-    });
-
-    // ==========================================
-    // 10. ANIMATION & RENDER LOOP
-    // ==========================================
-    const clock = new THREE.Clock();
-
-    function animate() {
-      requestAnimationFrame(animate);
-      TWEEN.update();
-      controls.update();
-
-      const time = clock.getElapsedTime();
-      codexGroup.position.y = Math.sin(time * 1.2) * 0.015;
-
-      if (currentSpectral === 'visible') {
-        goldFillLight.position.x = Math.sin(time * 0.8) * 4;
-        goldFillLight.position.z = Math.cos(time * 0.8) * 3;
-      }
-
-      updateHotspots();
-      renderer.render(scene, camera);
-    }
-
-    animate();
-
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    applyLanguage('ar');
   </script>
 </body>
 </html>
